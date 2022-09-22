@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+    deepstream61:
+        image: maximofn/deepstream61:dev
+
+        deploy:
+          resources:
+            reservations:
+              devices:
+                - driver: nvidia
+                  count: 1
+                  capabilities: [gpu]
+        
+        command: tail -f /dev/null
+
+        volumes:
+          - ~/Documents/jetson/deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
