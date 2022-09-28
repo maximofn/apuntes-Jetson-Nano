@@ -16,3 +16,6 @@ services:
 
         volumes:
           - ~/Documents/jetson/deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
+
+        ports:
+          - "3000:3000"
