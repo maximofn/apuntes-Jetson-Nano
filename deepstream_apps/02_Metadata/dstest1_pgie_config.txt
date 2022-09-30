@@ -55,12 +55,13 @@
 [property]
 gpu-id=0
 net-scale-factor=0.0039215697906911373
-model-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.caffemodel
-proto-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.prototxt
+model-file=../Primary_Detector/model_files/resnet10.caffemodel
+proto-file=../Primary_Detector/proto_files/resnet10.prototxt
 # model-engine-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.caffemodel_b1_gpu0_int8.engine
-model-engine-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.caffemodel_b1_gpu0_fp16.engine
-labelfile-path=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/labels.txt
-int8-calib-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/cal_trt.bin
+# model-engine-file=../Primary_Detector/model_engine_files/resnet10.caffemodel_b1_gpu0_fp16.engine
+model-engine-file=../Primary_Detector/model_engine_files/resnet10.caffemodel_b1_gpu0_int8.engine
+labelfile-path=../Primary_Detector/label_files/labels.txt
+int8-calib-file=../Primary_Detector/int8_calib_files/cal_trt.bin
 force-implicit-batch-dim=1
 batch-size=1
 network-mode=1
@@ -78,7 +79,7 @@ group-threshold=1
 
 # for vehicles
 [class-attrs-0] 
-pre-cluster-threshold=0.2
+pre-cluster-threshold=0.5
 
 # for bicycles
 [class-attrs-1] 
@@ -86,7 +87,7 @@ pre-cluster-threshold=0.2
 
 # for persons
 [class-attrs-2] 
-pre-cluster-threshold=0.2
+pre-cluster-threshold=0.5
 
 # for road signs
 [class-attrs-3] 

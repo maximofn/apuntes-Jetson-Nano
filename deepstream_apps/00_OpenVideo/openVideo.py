@@ -116,19 +116,19 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
             break
 
         frame_number=frame_meta.frame_num
-        num_rects = frame_meta.num_obj_meta # Number of rectangles ==> Number of objects
-        l_obj=frame_meta.obj_meta_list
-        while l_obj is not None:
-            try:
-                # Casting l_obj.data to pyds.NvDsObjectMeta
-                obj_meta=pyds.NvDsObjectMeta.cast(l_obj.data)
-            except StopIteration:
-                break
-            obj_counter[obj_meta.class_id] += 1
-            try: 
-                l_obj=l_obj.next
-            except StopIteration:
-                break
+        # num_rects = frame_meta.num_obj_meta # Number of rectangles ==> Number of objects
+        # l_obj=frame_meta.obj_meta_list
+        # while l_obj is not None:
+        #     try:
+        #         # Casting l_obj.data to pyds.NvDsObjectMeta
+        #         obj_meta=pyds.NvDsObjectMeta.cast(l_obj.data)
+        #     except StopIteration:
+        #         break
+        #     obj_counter[obj_meta.class_id] += 1
+        #     try: 
+        #         l_obj=l_obj.next
+        #     except StopIteration:
+        #         break
 
         # Acquiring a display meta object. The memory ownership remains in
         # the C code so downstream plugins can still access it. Otherwise
@@ -178,7 +178,6 @@ def main(args):
     if not gst_status:
         sys.stderr.write("Unable to initialize Gst\n")
         sys.exit(1)
-    return 0
 
     ####################################################################################
     # Create gstreamer elements
@@ -190,8 +189,6 @@ def main(args):
     pipeline = Gst.Pipeline()
     if not pipeline:
         sys.stderr.write(" Unable to create Pipeline \n")
-    Gst.ElementFactory.make("factoryname", "openVideoPipeline")
-    print(type(pipeline))
     
     # Source element for reading from the file, reads the video data from file
     print("\t Creating Source, reads the video data from file")
@@ -346,9 +343,6 @@ def main(args):
     ####################################################################################
     # Link the elements together
     ####################################################################################
-    # file-source -> h264-parser -> nvh264-decoder ->
-    # nvinfer -> nvvidconv -> nvosd -> nvvidconv_postosd -> 
-    # caps -> encoder -> rtppay -> udpsink
     print(" Linking elements in the Pipeline")
     
     if input_codec == "H264":
@@ -367,8 +361,9 @@ def main(args):
         sys.stderr.write(" Unable to get the sink pad of streammux \n")
     
     srcpad.link(sinkpad) # decoder-streammux
-    streammux.link(nvvidconv) # streammux-pgie
+    # streammux.link(pgie) # streammux-pgie
     # pgie.link(nvvidconv) # pgie-nvvidconv
+    streammux.link(nvvidconv) # streammux-nvvidconv
     nvvidconv.link(nvosd) # nvvidconv-nvosd
     nvosd.link(nvvidconv_postosd) # nvosd-nvvidconv_postosd
     nvvidconv_postosd.link(caps) # nvvidconv_postosd-caps

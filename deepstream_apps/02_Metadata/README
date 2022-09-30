@@ -33,10 +33,10 @@ $ sudo apt-get install libgirepository1.0-dev
 $ sudo apt-get install gobject-introspection gir1.2-gst-rtsp-server-1.0
 
 To get test app usage information:
-  $ python3 deepstream_test1_rtsp_out.py -h
+  $ python3 metadata.py -h
   
 To run the test app with default settings:
-  $ python3 deepstream_test1_rtsp_out.py -i <h264_elementary_stream>
+  $ python3 metadata.py -i <h264_elementary_stream>
   
 Default RTSP streaming location:
   rtsp://<server IP>:8554/ds-test
