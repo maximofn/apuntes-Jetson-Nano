@@ -26,7 +26,8 @@
 tracker-width=640
 tracker-height=384
 gpu-id=0
-ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
+# ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
+ll-lib-file=../MultiObjectTracker/libnvds_nvmultiobjecttracker.so
 ll-config-file=config_tracker_NvDCF_perf.yml
 #enable-past-frame=1
 enable-batch-process=1
