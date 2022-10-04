@@ -16,6 +16,7 @@ services:
 
         volumes:
           - ../../deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
+          - ../../deepstream_nano:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_nano
 
         ports:
           - "8554:8554"
