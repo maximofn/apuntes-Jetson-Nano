@@ -18,7 +18,7 @@
 ################################################################################
 
 import sys
-sys.path.append('/opt/nvidia/deepstream/deepstream/sources/deepstream_python_apps/dli_apps')
+sys.path.append('/opt/nvidia/deepstream/deepstream-6.1/deepstream_python_apps/apps/')
 import platform
 import configparser
 
@@ -456,6 +456,7 @@ def main(args):
     # Configure inference properties
     ####################################################################################
     print(" * Configure inference properties *")
+    print(f"\t Open {primary_config_file} file\t")
     pgie.set_property('config-file-path', primary_config_file)
     pgie_batch_size=pgie.get_property("batch-size")
     if(pgie_batch_size != number_sources):
