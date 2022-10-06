@@ -122,6 +122,13 @@ def parse_args():
 # tiler_sink_pad_buffer_probe  will extract metadata received on OSD sink pad
 # and update params for drawing rectangle, object information etc.
 def tiler_src_pad_buffer_probe(pad,info,u_data):
+    global ready
+    if ready == False:
+        ready = True
+        print("\n Ready to stream")
+    
+    fps_streams["stream{0}".format(0)].get_fps()
+
     frame_number=0
     old_frame_number=-1
     obj_counter = {
@@ -179,7 +186,14 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         # memory will not be claimed by the garbage collector.
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
-        py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
+
+        # Get frame rate through this probe
+        fps_streams["stream{0}".format(frame_meta.pad_index)].update_fps()
+        # fps_streams["stream{0}".format(frame_meta.pad_index)].print_data()
+        fps = fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
+
+        # py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
+        py_nvosd_text_params.display_text = f"stream={frame_meta.pad_index}\nFrame Number={frame_number:04d}\nNumber of Objects={num_rects:03d}\nVehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}\nPerson_count={obj_counter[PGIE_CLASS_ID_PERSON]:04d}\nfps={fps:02.2f}"
         
         # Now set the offsets where the string should appear
         py_nvosd_text_params.x_offset = 10;
@@ -187,7 +201,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         
         # Font , font-color and font-size
         py_nvosd_text_params.font_params.font_name = "Serif"
-        py_nvosd_text_params.font_params.font_size = 20
+        py_nvosd_text_params.font_params.font_size = 10
         # set(red, green, blue, alpha); set to White
         py_nvosd_text_params.font_params.font_color.set(1.0, 1.0, 1.0, 1.0)
         
@@ -202,9 +216,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         if old_frame_number != frame_number:
             # print("Frame Number=", frame_number, "Number of Objects=",num_rects,"Vehicle_count=",obj_counter[PGIE_CLASS_ID_VEHICLE],"Person_count=",obj_counter[PGIE_CLASS_ID_PERSON])
             old_frame_number = frame_number
-
-        # Get frame rate through this probe
-        fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
+        
         try:
             l_frame=l_frame.next
         except StopIteration:
