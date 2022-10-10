@@ -19,7 +19,7 @@
 
 import argparse
 import sys
-sys.path.append('../')
+sys.path.append('/opt/nvidia/deepstream/deepstream-6.1/deepstream_python_apps/apps/')
 
 import gi
 import configparser
