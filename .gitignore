@@ -1,3 +1,4 @@
 deepstream_apps/samples
 deepstream_apps/.ipynb_checkpoints
 .vscode
+deepstream_apps/objectDetector_Yolo

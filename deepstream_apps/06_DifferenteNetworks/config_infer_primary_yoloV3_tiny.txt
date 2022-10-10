@@ -62,10 +62,10 @@ gpu-id=0
 net-scale-factor=0.0039215697906911373
 #0=RGB, 1=BGR
 model-color-format=0
-custom-network-config=/opt/nvidia/deepstream/deepstream/sources/objectDetector_Yolo/yolov3-tiny.cfg
-model-file=/opt/nvidia/deepstream/deepstream/sources/objectDetector_Yolo/yolov3-tiny.weights
+custom-network-config=../objectDetector_Yolo/yolov3-tiny.cfg
+model-file=../objectDetector_Yolo/yolov3-tiny.weights
 model-engine-file=model_b1_gpu0_fp32.engine
-labelfile-path=/opt/nvidia/deepstream/deepstream/sources/objectDetector_Yolo/labels.txt
+labelfile-path=../objectDetector_Yolo/labels.txt
 ## 0=FP32, 1=INT8, 2=FP16 mode
 network-mode=0
 num-detected-classes=80
@@ -76,11 +76,11 @@ is-classifier=0
 cluster-mode=2
 maintain-aspect-ratio=1
 parse-bbox-func-name=NvDsInferParseCustomYoloV3Tiny
-custom-lib-path=/opt/nvidia/deepstream/deepstream/sources/objectDetector_Yolo/nvdsinfer_custom_impl_Yolo/libnvdsinfer_custom_impl_Yolo.so
+custom-lib-path=../objectDetector_Yolo/nvdsinfer_custom_impl_Yolo/libnvdsinfer_custom_impl_Yolo.so
 engine-create-func-name=NvDsInferYoloCudaEngineGet
 #scaling-filter=0
 #scaling-compute-hw=0
 
 [class-attrs-all]
 nms-iou-threshold=0.1
-threshold=0.7
+threshold=0.4

@@ -65,8 +65,8 @@ def parse_args():
     parser.add_argument("--output-codec", default="H264", help="RTSP Streaming Codec H264/H265, default=H264", choices=['H264','H265'])
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
-    parser.add_argument("--primary_config_file",   default="dstest2_pgie_config.txt", help="Config file, default=dstest2_pgie_config.txt")
-    parser.add_argument("--secondary_config_file", default="dstest2_sgie_config.txt", help="Config file, default=dstest2_sgie_config.txt")
+    parser.add_argument("--primary_config_file",   default="config_infer_primary_yoloV3_tiny.txt", help="Config file, default=config_infer_primary_yoloV3_tiny.txt")
+    # parser.add_argument("--secondary_config_file", default="dstest2_sgie_config.txt", help="Config file, default=dstest2_sgie_config.txt")
     # parser.add_argument("--tertiary_config_file",  default="dstest2_tgie_config.txt", help="Config file, default=dstest2_tgie_config.txt")
     parser.add_argument("--tracker_config_file",   default="dstest2_tracker_config.txt", help="Config file, default=dstest2_tracker_config.txt")
     parser.add_argument("-m", "--meta", default=0, help="set past tracking meta, default=0", type=int)
@@ -86,7 +86,7 @@ def parse_args():
     global bitrate
     global port
     global primary_config_file
-    global secondary_config_file
+    # global secondary_config_file
     # global tertiary_config_file
     global tracker_config_file
     global past_tracking
@@ -98,8 +98,8 @@ def parse_args():
     output_codec = args.output_codec
     bitrate = args.bitrate
     port = args.port
-    primary_config_file = "config_infer_primary_yoloV3_tiny"
-    secondary_config_file = args.secondary_config_file
+    primary_config_file = args.primary_config_file
+    # secondary_config_file = args.secondary_config_file
     # tertiary_config_file = args.tertiary_config_file
     tracker_config_file = args.tracker_config_file
     past_tracking = args.meta
@@ -158,7 +158,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
                 obj_meta=pyds.NvDsObjectMeta.cast(l_obj.data)
             except StopIteration:
                 break
-            obj_counter[obj_meta.class_id] += 1
+            # obj_counter[obj_meta.class_id] += 1
             try: 
                 l_obj=l_obj.next
             except StopIteration:
@@ -182,7 +182,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         fps = fps_streams["stream{0}".format(frame_meta.pad_index+1)].get_fps()
 
         # py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
-        py_nvosd_text_params.display_text = f"stream={frame_meta.pad_index}\nFrame Number={frame_number:04d}\nNumber of Objects={num_rects:03d}\nVehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}\nPerson_count={obj_counter[PGIE_CLASS_ID_PERSON]:04d}\nfps={fps:02.2f}"
+        py_nvosd_text_params.display_text = f"Yolo:\nstream={frame_meta.pad_index}\nFrame Number={frame_number:04d}\nNumber of Objects={num_rects:03d}\nVehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}\nPerson_count={obj_counter[PGIE_CLASS_ID_PERSON]:04d}\nfps={fps:02.2f}"
         
         # Now set the offsets where the string should appear
         py_nvosd_text_params.x_offset = 10;
@@ -398,52 +398,55 @@ def main(args):
         encoder.set_property('insert-sps-pps', 1)
         encoder.set_property('bufapi-version', 1)
     
-    # Make the payload-encode video into RTP packets, converts H264/H265 encoded Payload to RTP packets (RFC 3984)
-    # print("\t Make the payload-encode video into RTP packets, converts H264/H265 encoded Payload to RTP packets (RFC 3984)")
-    # if output_codec == "H264":
-    #     rtppay = Gst.ElementFactory.make("rtph264pay", "rtppay")
-    #     print("\t Creating H264 rtppay")
-    # elif output_codec == "H265":
-    #     rtppay = Gst.ElementFactory.make("rtph265pay", "rtppay")
-    #     print("\t Creating H265 rtppay")
-    # if not rtppay:
-    #     sys.stderr.write(" Unable to create rtppay")
-    
-    # # Make the UDP sink, sends UDP packets to the network. When paired with RTP payloader (Gst-rtph264pay) it can implement RTP streaming
-    # updsink_port_num = 5400
-    # print(f"\t Make the UDP sink in port {updsink_port_num}, sends UDP packets to the network. When paired with RTP payloader (Gst-rtph264pay) it can implement RTP streaming")
-    # sink = Gst.ElementFactory.make("udpsink", "udpsink")
-    # if not sink:
-    #     sys.stderr.write(" Unable to create udpsink")
+    if output_path is None:
+        # Make the payload-encode video into RTP packets, converts H264/H265 encoded Payload to RTP packets (RFC 3984)
+        print("\t Make the payload-encode video into RTP packets, converts H264/H265 encoded Payload to RTP packets (RFC 3984)")
+        if output_codec == "H264":
+            rtppay = Gst.ElementFactory.make("rtph264pay", "rtppay")
+            print("\t Creating H264 rtppay")
+        elif output_codec == "H265":
+            rtppay = Gst.ElementFactory.make("rtph265pay", "rtppay")
+            print("\t Creating H265 rtppay")
+        if not rtppay:
+            sys.stderr.write(" Unable to create rtppay")
+        
+        # # Make the UDP sink, sends UDP packets to the network. When paired with RTP payloader (Gst-rtph264pay) it can implement RTP streaming
+        updsink_port_num = 5400
+        print(f"\t Make the UDP sink in port {updsink_port_num}, sends UDP packets to the network. When paired with RTP payloader (Gst-rtph264pay) it can implement RTP streaming")
+        sink = Gst.ElementFactory.make("udpsink", "udpsink")
+        if not sink:
+            sys.stderr.write(" Unable to create udpsink")
+    else:
+        # Since the data format in the input file is elementary h264 or h265 stream, we need a h264parser h265parser, parses the incoming H264/H265 stream
+        print("\t Creating H264Parser, parses the incoming H264/H265 stream")
+        codecparse = Gst.ElementFactory.make("h264parse", "h264-parser")
+        if not codecparse:
+            sys.stderr.write(" Unable to create h264 parser \n")
+        
+        # This element merges streams (audio and video) into ISO MPEG-4 (.mp4) files
+        print("\t Creating mp4mux, merges streams (audio and video) into ISO MPEG-4 (.mp4) files")
+        mux = Gst.ElementFactory.make("mp4mux", "mux")
+        if not mux:
+            sys.stderr.write(" Unable to create mux \n")
 
-    # Since the data format in the input file is elementary h264 or h265 stream, we need a h264parser h265parser, parses the incoming H264/H265 stream
-    print("\t Creating H264Parser, parses the incoming H264/H265 stream")
-    codecparse = Gst.ElementFactory.make("h264parse", "h264-parser")
-    if not codecparse:
-        sys.stderr.write(" Unable to create h264 parser \n")
-    
-    # This element merges streams (audio and video) into ISO MPEG-4 (.mp4) files
-    print("\t Creating mp4mux, merges streams (audio and video) into ISO MPEG-4 (.mp4) files")
-    mux = Gst.ElementFactory.make("mp4mux", "mux")
-    if not mux:
-        sys.stderr.write(" Unable to create mux \n")
-
-    # Write incoming data to a file in the local file system
-    print("\t Creating filesink, write incoming data to a file in the local file system")
-    sink = Gst.ElementFactory.make("filesink", "filesink")
-    if not sink:
-        sys.stderr.write(" Unable to create filesink \n")
-    sink.set_property('location', output_path)
+        # Write incoming data to a file in the local file system
+        print("\t Creating filesink, write incoming data to a file in the local file system")
+        sink = Gst.ElementFactory.make("filesink", "filesink")
+        if not sink:
+            sys.stderr.write(" Unable to create filesink \n")
+        sink.set_property('location', output_path)
         
         
     ####################################################################################
     # Configure sink properties
     ####################################################################################
-    # print(" Configure sink properties")
-    # sink.set_property('host', '224.224.255.255')
-    # sink.set_property('port', updsink_port_num)
-    # sink.set_property('async', False)
-    # sink.set_property('sync', 1)
+    if output_path is None:
+        print(" Configure sink properties")
+        sink.set_property('host', '224.224.255.255')
+        sink.set_property('port', updsink_port_num)
+        sink.set_property('async', False)
+        sink.set_property('sync', 1)
+    sink.set_property("qos",0)
     
     
     ####################################################################################
@@ -489,7 +492,6 @@ def main(args):
     tiler.set_property("columns",tiler_columns)
     tiler.set_property("width", TILED_OUTPUT_WIDTH)
     tiler.set_property("height", TILED_OUTPUT_HEIGHT)
-    sink.set_property("qos",0)
 
     
     
@@ -504,10 +506,12 @@ def main(args):
     pipeline.add(nvvidconv_postosd)
     pipeline.add(caps)
     pipeline.add(encoder)
-    # pipeline.add(rtppay)
-    # pipeline.add(sink)
-    pipeline.add(codecparse)
-    pipeline.add(mux)
+    if output_path is None:
+        pipeline.add(rtppay)
+        pipeline.add(sink)
+    else:
+        pipeline.add(codecparse)
+        pipeline.add(mux)
     pipeline.add(sink)
 
     
@@ -528,11 +532,13 @@ def main(args):
     queue5.link(nvvidconv_postosd)
     nvvidconv_postosd.link(caps)
     caps.link(encoder)
-    encoder.link(codecparse)
-    codecparse.link(mux)
-    mux.link(sink)
-    # encoder.link(rtppay)
-    # rtppay.link(sink)
+    if output_path is None:
+        encoder.link(rtppay)
+        rtppay.link(sink)
+    else:
+        encoder.link(codecparse)
+        codecparse.link(mux)
+        mux.link(sink)
     
     
     ###################################################################################
@@ -553,25 +559,26 @@ def main(args):
     ###################################################################################
     # Configure RTSP server
     ####################################################################################
-    # print(" Configure RTSP port")
-    # server = GstRtspServer.RTSPServer.new()
-    # server.props.service = f"{port}"
-    # server.attach(None)
-    
-    # factory = GstRtspServer.RTSPMediaFactory.new()
-    # factory.set_launch( f"( udpsrc name=pay0 port={updsink_port_num} buffer-size=524288 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=(string){output_codec}, payload=96 \" )")
-    # factory.set_shared(True)
-    # server.get_mount_points().add_factory(f"/{stream_name}", factory)
-    # print("\t Launched RTSP Streaming at " + color.UNDERLINE + color.GREEN + f"rtsp://localhost:{port}/{stream_name}" + color.END)
+    if output_path is None:
+        print(" Configure RTSP port")
+        server = GstRtspServer.RTSPServer.new()
+        server.props.service = f"{port}"
+        server.attach(None)
+        
+        factory = GstRtspServer.RTSPMediaFactory.new()
+        factory.set_launch( f"( udpsrc name=pay0 port={updsink_port_num} buffer-size=524288 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=(string){output_codec}, payload=96 \" )")
+        factory.set_shared(True)
+        server.get_mount_points().add_factory(f"/{stream_name}", factory)
+        print("\t Launched RTSP Streaming at " + color.UNDERLINE + color.GREEN + f"rtsp://localhost:{port}/{stream_name}" + color.END)
     
     
     ###################################################################################
     # list of sources
     ####################################################################################
-    print(" Video sources:")
+    print(f" Video sources ({number_sources}):")
     for i, source in enumerate(args):
-        if (i != 0):
-            print(f"\t {i}: {source}")
+        if (i > number_sources):
+            print(f"\t {i-1}: {source}")
 
     
     
