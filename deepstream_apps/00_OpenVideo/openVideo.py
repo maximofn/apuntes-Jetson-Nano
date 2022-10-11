@@ -13,14 +13,16 @@ from gi.repository import GObject, Gst, GstRtspServer, GLib
 # common library
 from common.is_aarch_64 import is_aarch64
 from common.bus_call import bus_call
+from common.FPS import GETFPS
 
 # Python bindings for NVIDIA DeepStream SDK
 import pyds
 
-# PGIE_CLASS_ID_VEHICLE = 0
-# PGIE_CLASS_ID_BICYCLE = 1
-# PGIE_CLASS_ID_PERSON = 2
-# PGIE_CLASS_ID_ROADSIGN = 3
+# FPS
+fps_stream = {}
+
+# Ready
+ready = False
 
 class color:
    PURPLE = '\033[95m'
@@ -56,8 +58,7 @@ def parse_args():
     parser.add_argument("--output-codec", default="H264", help="RTSP Streaming Codec H264/H265, default=H264", choices=['H264','H265'])
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
-    # parser.add_argument("-c", "--config", default="dstest1_pgie_config.txt", help="Config file, default=dstest1_pgie_config.txt")
-    parser.add_argument("-m", "--mount-point", default="rtsp_out", help="Mount point RTSP, default=rtsp_out")
+    parser.add_argument("-m", "--mount-point", default="stream1", help="Mount point RTSP, default=rtsp_out")
     
     # Check input arguments
     if len(sys.argv)==1:
@@ -70,7 +71,6 @@ def parse_args():
     global output_codec
     global bitrate
     global port
-    # global config_file
     global mount_point
     
     stream_path = args.input_video
@@ -78,7 +78,6 @@ def parse_args():
     output_codec = args.output_codec
     bitrate = args.bitrate
     port = args.port
-    # config_file = args.config_file
     mount_point = args.mount_point
     
     return 0
@@ -87,19 +86,19 @@ def parse_args():
 
 def osd_sink_pad_buffer_probe(pad,info,u_data):
     frame_number=0
-    # #Intiallizing object counter with 0.
-    # obj_counter = {
-    #     PGIE_CLASS_ID_VEHICLE:0,
-    #     PGIE_CLASS_ID_PERSON:0,
-    #     PGIE_CLASS_ID_BICYCLE:0,
-    #     PGIE_CLASS_ID_ROADSIGN:0
-    # }
-    # num_rects=0
 
     gst_buffer = info.get_buffer()
     if not gst_buffer:
         print("Unable to get GstBuffer ")
         return
+    
+    global ready
+    if ready == False:
+        ready = True
+        print("\n Ready to stream")
+    
+    fps_stream[0].update_fps()
+    fps = fps_stream[0].get_fps()
 
     # Retrieve batch metadata from the gst_buffer
     # Note that pyds.gst_buffer_get_nvds_batch_meta() expects the
@@ -118,19 +117,6 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
             break
 
         frame_number=frame_meta.frame_num
-        # num_rects = frame_meta.num_obj_meta # Number of rectangles ==> Number of objects
-        # l_obj=frame_meta.obj_meta_list
-        # while l_obj is not None:
-        #     try:
-        #         # Casting l_obj.data to pyds.NvDsObjectMeta
-        #         obj_meta=pyds.NvDsObjectMeta.cast(l_obj.data)
-        #     except StopIteration:
-        #         break
-        #     obj_counter[obj_meta.class_id] += 1
-        #     try: 
-        #         l_obj=l_obj.next
-        #     except StopIteration:
-        #         break
 
         # Acquiring a display meta object. The memory ownership remains in
         # the C code so downstream plugins can still access it. Otherwise
@@ -143,8 +129,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # memory will not be claimed by the garbage collector.
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
-        # py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
-        py_nvosd_text_params.display_text = f"Frame Number={frame_number}"
+        py_nvosd_text_params.display_text = f"Frame Number={frame_number:04d} FPS={fps:0.2f}"
 
 
         # Now set the offsets where the string should appear
@@ -175,6 +160,9 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
 
 
 def main(args):
+    # Init FPS
+    fps_stream[0] = GETFPS(0)
+
     # Standard GStreamer initialization
     gst_status, _ = Gst.init_check(None)    # GStreamer initialization
     if not gst_status:
@@ -221,12 +209,6 @@ def main(args):
     streammux = Gst.ElementFactory.make("nvstreammux", "Stream-muxer")
     if not streammux:
         sys.stderr.write(" Unable to create NvStreamMux \n")
-    
-    # # Use nvinfer to run inferencing on decoder's output, behaviour of inferencing is set through config file, runs inference using TensorRT
-    # print("\t Creating nvinfer, runs inference using TensorRT")
-    # pgie = Gst.ElementFactory.make("nvinfer", "primary-inference")
-    # if not pgie:
-    #     sys.stderr.write(" Unable to create pgie \n")
     
     # Use convertor to convert from NV12 to RGBA as required by nvosd, performs video color format conversion (I420 to RGBA)
     print("\t Creating convertor, performs video color format conversion (I420 to RGBA)")
@@ -314,13 +296,6 @@ def main(args):
     streammux.set_property('batched-push-timeout', 4000000)
     
     
-    # ####################################################################################
-    # # Configure inference properties
-    # ####################################################################################
-    # print("\n\t Configure inference properties")
-    # pgie.set_property('config-file-path', config_file)
-    
-    
     ####################################################################################
     # Adding elements to Pipeline
     ####################################################################################
@@ -332,7 +307,6 @@ def main(args):
         pipeline.add(h265parser)
     pipeline.add(decoder)
     pipeline.add(streammux)
-    # pipeline.add(pgie)
     pipeline.add(nvvidconv)
     pipeline.add(nvosd)
     pipeline.add(nvvidconv_postosd)
@@ -347,13 +321,6 @@ def main(args):
     ####################################################################################
     print(" Linking elements in the Pipeline")
     
-    if input_codec == "H264":
-        source.link(h264parser) # source-parser
-        h264parser.link(decoder) # parser-decoder
-    elif input_codec == "H265":
-        source.link(h265parser) # source-parser
-        h265parser.link(decoder) # parser-decoder
-    
     srcpad = decoder.get_static_pad("src")
     if not srcpad:
         sys.stderr.write(" Unable to get source pad of decoder \n")
@@ -362,9 +329,13 @@ def main(args):
     if not sinkpad:
         sys.stderr.write(" Unable to get the sink pad of streammux \n")
     
+    if input_codec == "H264":
+        source.link(h264parser) # source-parser
+        h264parser.link(decoder) # parser-decoder
+    elif input_codec == "H265":
+        source.link(h265parser) # source-parser
+        h265parser.link(decoder) # parser-decoder
     srcpad.link(sinkpad) # decoder-streammux
-    # streammux.link(pgie) # streammux-pgie
-    # pgie.link(nvvidconv) # pgie-nvvidconv
     streammux.link(nvvidconv) # streammux-nvvidconv
     nvvidconv.link(nvosd) # nvvidconv-nvosd
     nvosd.link(nvvidconv_postosd) # nvosd-nvvidconv_postosd

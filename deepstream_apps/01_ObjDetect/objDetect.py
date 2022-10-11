@@ -13,9 +13,16 @@ from gi.repository import GObject, Gst, GstRtspServer, GLib
 # common library
 from common.is_aarch_64 import is_aarch64
 from common.bus_call import bus_call
+from common.FPS import GETFPS
 
 # Python bindings for NVIDIA DeepStream SDK
 import pyds
+
+# FPS
+fps_stream = {}
+
+# Ready
+ready = False
 
 PGIE_CLASS_ID_VEHICLE = 0
 PGIE_CLASS_ID_BICYCLE = 1
@@ -56,8 +63,8 @@ def parse_args():
     parser.add_argument("--output-codec", default="H264", help="RTSP Streaming Codec H264/H265, default=H264", choices=['H264','H265'])
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
-    parser.add_argument("-c", "--config", default="dstest1_pgie_config_1class.txt", help="Config file, default=dstest1_pgie_config.txt")
-    parser.add_argument("-m", "--mount-point", default="rtsp_out", help="Mount point RTSP, default=rtsp_out")
+    parser.add_argument("-c", "--config", default="dstest1_pgie_config_4classes.txt", help="Config file, default=dstest1_pgie_config_4classes.txt")
+    parser.add_argument("-m", "--mount-point", default="stream1", help="Mount point RTSP, default=rtsp_out")
     
     # Check input arguments
     if len(sys.argv)==1:
@@ -100,6 +107,14 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
     if not gst_buffer:
         print("Unable to get GstBuffer ")
         return
+    
+    global ready
+    if ready == False:
+        ready = True
+        print("\n Ready to stream")
+    
+    fps_stream[0].update_fps()
+    fps = fps_stream[0].get_fps()
 
     # Retrieve batch metadata from the gst_buffer
     # Note that pyds.gst_buffer_get_nvds_batch_meta() expects the
@@ -143,7 +158,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # memory will not be claimed by the garbage collector.
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
-        py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
+        py_nvosd_text_params.display_text = f"Frame Number={frame_number} fps={fps} Number of Objects={num_rects} Vehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]} Person_count={obj_counter[PGIE_CLASS_ID_PERSON]}"
 
 
         # Now set the offsets where the string should appear
@@ -174,6 +189,9 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
 
 
 def main(args):
+    # Init FPS
+    fps_stream[0] = GETFPS(0)
+
     # Standard GStreamer initialization
     gst_status, _ = Gst.init_check(None)    # GStreamer initialization
     if not gst_status:
@@ -226,6 +244,7 @@ def main(args):
     pgie = Gst.ElementFactory.make("nvinfer", "primary-inference")
     if not pgie:
         sys.stderr.write(" Unable to create pgie \n")
+    print(type(pgie))
     
     # Use convertor to convert from NV12 to RGBA as required by nvosd, performs video color format conversion (I420 to RGBA)
     print("\t Creating convertor, performs video color format conversion (I420 to RGBA)")

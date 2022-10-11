@@ -13,9 +13,16 @@ from gi.repository import GObject, Gst, GstRtspServer, GLib
 # common library
 from common.is_aarch_64 import is_aarch64
 from common.bus_call import bus_call
+from common.FPS import GETFPS
 
 # Python bindings for NVIDIA DeepStream SDK
 import pyds
+
+# FPS
+fps_stream = {}
+
+# Ready
+ready = False
 
 PGIE_CLASS_ID_VEHICLE = 0
 PGIE_CLASS_ID_BICYCLE = 1
@@ -57,7 +64,7 @@ def parse_args():
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
     parser.add_argument("-c", "--config", default="dstest1_pgie_config.txt", help="Config file, default=dstest1_pgie_config.txt")
-    parser.add_argument("-m", "--mount-point", default="rtsp_out", help="Mount point RTSP, default=rtsp_out")
+    parser.add_argument("-m", "--mount-point", default="stream1", help="Mount point RTSP, default=rtsp_out")
     
     # Check input arguments
     if len(sys.argv)==1:
@@ -100,6 +107,14 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
     if not gst_buffer:
         print("Unable to get GstBuffer ")
         return
+    
+    global ready
+    if ready == False:
+        ready = True
+        print("\n Ready to stream")
+    
+    fps_stream[0].update_fps()
+    fps = fps_stream[0].get_fps()
 
     # Retrieve batch metadata from the gst_buffer
     # Note that pyds.gst_buffer_get_nvds_batch_meta() expects the
@@ -127,6 +142,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
             except StopIteration:
                 break
             obj_counter[obj_meta.class_id] += 1
+            print(f"obj_meta.class_id: {obj_meta.class_id}, obj_meta.rect_params.height: {obj_meta.rect_params.height}, obj_meta.rect_params.width: {obj_meta.rect_params.width}, obj_meta.rect_params.left: {obj_meta.rect_params.left}, obj_meta.rect_params.top: {obj_meta.rect_params.top}")
             try: 
                 l_obj=l_obj.next
             except StopIteration:
@@ -174,6 +190,9 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
 
 
 def main(args):
+    # Init FPS
+    fps_stream[0] = GETFPS(0)
+
     # Standard GStreamer initialization
     gst_status, _ = Gst.init_check(None)    # GStreamer initialization
     if not gst_status:
