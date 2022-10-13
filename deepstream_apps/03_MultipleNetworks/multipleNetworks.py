@@ -13,12 +13,19 @@ from gi.repository import GObject, Gst, GstRtspServer, GLib
 # common library
 from common.is_aarch_64 import is_aarch64
 from common.bus_call import bus_call
+from common.FPS import GETFPS
 
 # Config parser
 import configparser
 
 # Python bindings for NVIDIA DeepStream SDK
 import pyds
+
+# FPS
+fps_stream = {}
+
+# Ready
+ready = False
 
 PGIE_CLASS_ID_VEHICLE = 0
 PGIE_CLASS_ID_BICYCLE = 1
@@ -45,16 +52,16 @@ ready = False
 
 
 #############################################################################################################################################################################################################################################################################################################################
-#   _________          _____________          _______________          _____________          _________          ___________          _________          ________________          _________          ________________          ____________          _______________          ____________          _________
-#  |         |        | h264        |        |               |        |             |        |         |        |           |        |         |        |                |        |         |        |                |        |            |        |               |        |            |        |         |
-#  | filesrc |------->|  /   parser |------->| nvv4l2decoder |------->| nvstreammux |------->| nvinfer |------->| nvtracker |------->| nvinfer |------->| nvvideoconvert |------->| nvdsosd |------->| nvvideoconvert |------->| capsfilter |------->| nvv4l2h264enc |------->| rtph264pay |------->| udpsink |
-#  |_________|        |_h265________|        |_______________|        |_____________|        |_________|        |___________|        |_________|        |________________|        |_________|        |________________|        |____________|        |_______________|        |____________|        |_________|
+#   _________          _____________          _______________          _____________          _________          ___________          _________          _________          _________          ________________          _________          ________________          ____________          _______________          ____________          _________
+#  |         |        | h264        |        |               |        |             |        |         |        |           |        |         |        |         |        |         |        |                |        |         |        |                |        |            |        |               |        |            |        |         |
+#  | filesrc |------->|  /   parser |------->| nvv4l2decoder |------->| nvstreammux |------->| nvinfer |------->| nvtracker |------->| nvinfer |------->| nvinfer |------->| nvinfer |------->| nvvideoconvert |------->| nvdsosd |------->| nvvideoconvert |------->| capsfilter |------->| nvv4l2h264enc |------->| rtph264pay |------->| udpsink |
+#  |_________|        |_h265________|        |_______________|        |_____________|        |_________|        |___________|        |_________|        |_________|        |_________|        |________________|        |_________|        |________________|        |____________|        |_______________|        |____________|        |_________|
 #                   
-#   open video         parse video            decode video             forms a batch         does inferencing    low-level tracker   does inferencing    convert video             draw overlay       convert video            not modify data         encode video            Payload-encode       sends UDP packets 
-#                                             h264/h265 to nv12        of frames from        on input data       library to track    on input data       nv12 to RGBA              bounding boxes     RGBA to nv12             but can enforce         nv12 to h264/h265       H264 video into      to the network
-#                                                                      multiple input        using TensorRT      the detected objcts using TensorRT      create buffer                                create buffer            limitations on                                  RTP packets
-#                                                                      sources before AI                         with persistent                                                                           the data format
-#                                                                                                                (possibly unique) 
+#   open video         parse video            decode video             forms a batch         does inferencing    low-level tracker   does inferencing   does inferencing   does inferencing    convert video             draw overlay       convert video            not modify data         encode video            Payload-encode       sends UDP packets 
+#                                             h264/h265 to nv12        of frames from        on input data       library to track    on input data      on input data      on input data       nv12 to RGBA              bounding boxes     RGBA to nv12             but can enforce         nv12 to h264/h265       H264 video into      to the network
+#                                                                      multiple input        using TensorRT      the detected objcts using TensorRT     using TensorRT     using TensorRT      create buffer                                create buffer            limitations on                                  RTP packets
+#                                                                      sources before AI                         with persistent                                                                                                                                     the data format
+#                                                                                                                (possibly unique)
 #                                                                                                                IDs over time
 #############################################################################################################################################################################################################################################################################################################################
 
@@ -67,7 +74,9 @@ def parse_args():
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
     parser.add_argument("--primary_config_file",   default="dstest2_pgie_config.txt", help="Config file, default=dstest2_pgie_config.txt")
-    parser.add_argument("--secondary_config_file", default="dstest2_sgie_config.txt", help="Config file, default=dstest2_sgie_config.txt")
+    parser.add_argument("--secondary_config_file1", default="dstest2_sgie_config1.txt", help="Config file, default=dstest2_sgie_config1.txt")
+    parser.add_argument("--secondary_config_file2", default="dstest2_sgie_config2.txt", help="Config file, default=dstest2_sgie_config2.txt")
+    parser.add_argument("--secondary_config_file3", default="dstest2_sgie_config3.txt", help="Config file, default=dstest2_sgie_config3.txt")
     # parser.add_argument("--tertiary_config_file",  default="dstest2_tgie_config.txt", help="Config file, default=dstest2_tgie_config.txt")
     parser.add_argument("--tracker_config_file",   default="dstest2_tracker_config.txt", help="Config file, default=dstest2_tracker_config.txt")
     parser.add_argument("-m", "--meta", default=0, help="set past tracking meta, default=0", type=int)
@@ -85,7 +94,9 @@ def parse_args():
     global bitrate
     global port
     global primary_config_file
-    global secondary_config_file
+    global secondary_config_file1
+    global secondary_config_file2
+    global secondary_config_file3
     # global tertiary_config_file
     global tracker_config_file
     global past_tracking
@@ -97,7 +108,9 @@ def parse_args():
     bitrate = args.bitrate
     port = args.port
     primary_config_file = args.primary_config_file
-    secondary_config_file = args.secondary_config_file
+    secondary_config_file1 = args.secondary_config_file1
+    secondary_config_file2 = args.secondary_config_file2
+    secondary_config_file3 = args.secondary_config_file3
     # tertiary_config_file = args.tertiary_config_file
     tracker_config_file = args.tracker_config_file
     past_tracking = args.meta
@@ -107,10 +120,6 @@ def parse_args():
 
 
 def osd_sink_pad_buffer_probe(pad,info,u_data):
-    global ready
-    if not ready:
-        print("\n Ready to stream")
-        ready = True
     frame_number=0
     #Intiallizing object counter with 0.
     obj_counter = {
@@ -125,6 +134,14 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
     if not gst_buffer:
         print("Unable to get GstBuffer ")
         return
+    
+    global ready
+    if ready == False:
+        ready = True
+        print("\n Ready to stream")
+    
+    fps_stream[0].update_fps()
+    fps = fps_stream[0].get_fps()
 
     # Retrieve batch metadata from the gst_buffer
     # Note that pyds.gst_buffer_get_nvds_batch_meta() expects the
@@ -168,7 +185,10 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # memory will not be claimed by the garbage collector.
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
-        py_nvosd_text_params.display_text = (f"Frame Number={frame_number}\tNumber of Objects={num_rects:03d}   Vehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}   Person_count={obj_counter[PGIE_CLASS_ID_PERSON]:03d}")
+        py_nvosd_text_params.display_text = (f"Frame Number={frame_number:04d}\t\
+fps={fps:.2f}\tNumber of Objects={num_rects:03d}   \
+Vehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}   \
+Person_count={obj_counter[PGIE_CLASS_ID_PERSON]:03d}")
 
         # Now set the offsets where the string should appear
         py_nvosd_text_params.x_offset = 10
@@ -197,6 +217,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
     past_tracking_meta[0] = past_tracking
     if(past_tracking_meta[0]==1):
         l_user=batch_meta.batch_user_meta_list
+        print(f"l_user = {l_user}")
         while l_user is not None:
             try:
                 # Note that l_user.data needs a cast to pyds.NvDsUserMeta
@@ -243,6 +264,9 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
 
 
 def main(args):
+    # Init FPS
+    fps_stream[0] = GETFPS(0)
+
     # Standard GStreamer initialization
     gst_status, _ = Gst.init_check(None)    # GStreamer initialization
     if not gst_status:
@@ -304,9 +328,21 @@ def main(args):
 
     # Use nvinfer to run inferencing on decoder's output, behaviour of inferencing is set through config file, runs inference using TensorRT
     print("\t Creating nvinfer, runs secondary inference using TensorRT")
-    sgie = Gst.ElementFactory.make("nvinfer", "secondary-inference")
-    if not sgie:
-        sys.stderr.write(" Unable to make sgie \n")
+    sgie1 = Gst.ElementFactory.make("nvinfer", "secondary1-inference")
+    if not sgie1:
+        sys.stderr.write(" Unable to make sgie1 \n")
+
+    # Use nvinfer to run inferencing on decoder's output, behaviour of inferencing is set through config file, runs inference using TensorRT
+    print("\t Creating nvinfer, runs secondary inference using TensorRT")
+    sgie2 = Gst.ElementFactory.make("nvinfer", "secondary2-inference")
+    if not sgie2:
+        sys.stderr.write(" Unable to make sgie2 \n")
+
+    # Use nvinfer to run inferencing on decoder's output, behaviour of inferencing is set through config file, runs inference using TensorRT
+    print("\t Creating nvinfer, runs secondary inference using TensorRT")
+    sgie3 = Gst.ElementFactory.make("nvinfer", "secondary3-inference")
+    if not sgie3:
+        sys.stderr.write(" Unable to make sgie3 \n")
 
     # tgie = Gst.ElementFactory.make("nvinfer", "tertiary-inference")
     # if not tgie:
@@ -327,18 +363,6 @@ def main(args):
     nvosd = Gst.ElementFactory.make("nvdsosd", "onscreendisplay")
     if not nvosd:
         sys.stderr.write(" Unable to create nvosd \n")
-    
-    # # Finally render the osd output
-    # if is_aarch64():
-    #     transform = Gst.ElementFactory.make("nvegltransform", "nvegl-transform")
-
-    # print("Creating EGLSink \n")
-    # sink = Gst.ElementFactory.make("nveglglessink", "nvvideo-renderer")
-    # if not sink:
-    #     sys.stderr.write(" Unable to create egl sink \n")
-
-    # print("Playing file %s " %args[1])
-    # source.set_property('location', args[1])
 
     # Performs video color format conversion (RGBA to I420)
     print("\t Performs video color format conversion (RGBA to I420)")
@@ -421,8 +445,14 @@ def main(args):
     print(f"\t Open {primary_config_file} file\t", end="")
     pgie.set_property('config-file-path', primary_config_file)
     print(color.GREEN + "OK" + color.END)
-    print(f"\t Open {secondary_config_file} file\t", end="")
-    sgie.set_property('config-file-path', secondary_config_file)
+    print(f"\t Open {secondary_config_file1} file\t", end="")
+    sgie1.set_property('config-file-path', secondary_config_file1)
+    print(color.GREEN + "OK" + color.END)
+    print(f"\t Open {secondary_config_file2} file\t", end="")
+    sgie2.set_property('config-file-path', secondary_config_file2)
+    print(color.GREEN + "OK" + color.END)
+    print(f"\t Open {secondary_config_file3} file\t", end="")
+    sgie3.set_property('config-file-path', secondary_config_file3)
     print(color.GREEN + "OK" + color.END)
     # print(f"\t Open {tertiary_config_file} file\t", end="")
     # tgie.set_property('config-file-path', tertiary_config_file)
@@ -477,7 +507,9 @@ def main(args):
     pipeline.add(streammux)
     pipeline.add(pgie)
     pipeline.add(tracker)
-    pipeline.add(sgie)
+    pipeline.add(sgie1)
+    pipeline.add(sgie2)
+    pipeline.add(sgie3)
     # pipeline.add(tgie)
     pipeline.add(nvvidconv)
     pipeline.add(nvosd)
@@ -510,10 +542,13 @@ def main(args):
     srcpad.link(sinkpad) # decoder-streammux
     streammux.link(pgie) # streammux-pgie
     pgie.link(tracker) # pgie-tracker
-    tracker.link(sgie) # tracker-sgie
+    tracker.link(sgie1) # tracker-sgie1
+    sgie1.link(sgie2) # sgie1-sgie2
+    # sgie2.link(nvvidconv) # sgie1-nvvidconv
+    sgie2.link(sgie3) # sgie2-sgie3
     # sgie.link(tgie) # sgie-tgie
     # tgie.link(nvvidconv) # tgie-nvvidconv
-    sgie.link(nvvidconv) #sgie1-nvvidconv
+    sgie3.link(nvvidconv) #sgie3-nvvidconv
     nvvidconv.link(nvosd) # nvvidconv-nvosd
     nvosd.link(nvvidconv_postosd) # nvosd-nvvidconv_postosd
     nvvidconv_postosd.link(caps) # nvvidconv_postosd-caps

@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument("--output-codec", default="H264", help="RTSP Streaming Codec H264/H265, default=H264", choices=['H264','H265'])
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
-    parser.add_argument("-c", "--config", default="dstest1_pgie_config.txt", help="Config file, default=dstest1_pgie_config.txt")
+    parser.add_argument("-c", "--config", default="dstest1_pgie_config_4classes.txt", help="Config file, default=dstest1_pgie_config_4classes.txt")
     parser.add_argument("-m", "--mount-point", default="stream1", help="Mount point RTSP, default=rtsp_out")
     
     # Check input arguments
@@ -142,7 +142,9 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
             except StopIteration:
                 break
             obj_counter[obj_meta.class_id] += 1
-            print(f"obj_meta.class_id: {obj_meta.class_id}, obj_meta.rect_params.height: {obj_meta.rect_params.height}, obj_meta.rect_params.width: {obj_meta.rect_params.width}, obj_meta.rect_params.left: {obj_meta.rect_params.left}, obj_meta.rect_params.top: {obj_meta.rect_params.top}")
+            print(f"obj_meta.class_id: {obj_meta.class_id:02d}, obj_meta.rect_params.height: {obj_meta.rect_params.height:.3f}, \
+obj_meta.rect_params.width: {obj_meta.rect_params.width:.3f}, obj_meta.rect_params.left: {obj_meta.rect_params.left:.3f}, \
+obj_meta.rect_params.top: {obj_meta.rect_params.top:.3f}")
             try: 
                 l_obj=l_obj.next
             except StopIteration:
@@ -159,7 +161,7 @@ def osd_sink_pad_buffer_probe(pad,info,u_data):
         # memory will not be claimed by the garbage collector.
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
-        py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
+        py_nvosd_text_params.display_text = f"Frame Number={frame_number} fps={fps} Number of Objects={num_rects} Vehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]} Person_count={obj_counter[PGIE_CLASS_ID_PERSON]}"
 
 
         # Now set the offsets where the string should appear
@@ -332,9 +334,9 @@ def main(args):
     streammux.set_property('batched-push-timeout', 4000000)
     
     
-    # ####################################################################################
-    # # Configure inference properties
-    # ####################################################################################
+    ####################################################################################
+    # Configure inference properties
+    ####################################################################################
     print(" Configure inference properties")
     print(f"\t Open {config_file} file")
     pgie.set_property('config-file-path', config_file)
