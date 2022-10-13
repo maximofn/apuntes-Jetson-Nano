@@ -11,9 +11,9 @@ gi.require_version('GstRtspServer', '1.0') # GStreamer rtsp server
 from gi.repository import GObject, Gst, GstRtspServer, GLib
 
 from ctypes import *
-# import time
+import time
 import math
-# import platform
+import platform
 
 # common library
 from common.is_aarch_64 import is_aarch64
@@ -26,7 +26,11 @@ import configparser
 # Python bindings for NVIDIA DeepStream SDK
 import pyds
 
-fps_streams={}
+# FPS
+fps_stream = {}
+
+# Ready
+ready = False
 
 MAX_DISPLAY_LEN=64
 PGIE_CLASS_ID_VEHICLE = 0
