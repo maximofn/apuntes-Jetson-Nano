@@ -11,9 +11,9 @@ gi.require_version('GstRtspServer', '1.0') # GStreamer rtsp server
 from gi.repository import GObject, Gst, GstRtspServer, GLib
 
 from ctypes import *
-import time
+# import time
 import math
-import platform
+# import platform
 
 # common library
 from common.is_aarch_64 import is_aarch64
@@ -21,13 +21,14 @@ from common.bus_call import bus_call
 from common.FPS import GETFPS
 
 # Config parser
-import configparser
+# import configparser
 
 # Python bindings for NVIDIA DeepStream SDK
 import pyds
 
 # FPS
-fps_stream = {}
+fps_streams = {}
+getfps_streams = {}
 
 # Ready
 ready = False
@@ -61,17 +62,20 @@ ready = False
 
 
 #############################################################################################################################################################################################################################################################################################################################
-#   _________          _____________          _______________          _____________          _________          ___________          _________          ________________          _________          ________________          ____________          _______________          ____________          _________
-#  |         |        | h264        |        |               |        |             |        |         |        |           |        |         |        |                |        |         |        |                |        |            |        |               |        |            |        |         |
-#  | filesrc |------->|  /   parser |------->| nvv4l2decoder |------->| nvstreammux |------->| nvinfer |------->| nvtracker |------->| nvinfer |------->| nvvideoconvert |------->| nvdsosd |------->| nvvideoconvert |------->| capsfilter |------->| nvv4l2h264enc |------->| rtph264pay |------->| udpsink |
-#  |_________|        |_h265________|        |_______________|        |_____________|        |_________|        |___________|        |_________|        |________________|        |_________|        |________________|        |____________|        |_______________|        |____________|        |_________|
-#                   
-#   open video         parse video            decode video             forms a batch         does inferencing    low-level tracker   does inferencing    convert video             draw overlay       convert video            not modify data         encode video            Payload-encode       sends UDP packets 
-#                                             h264/h265 to nv12        of frames from        on input data       library to track    on input data       nv12 to RGBA              bounding boxes     RGBA to nv12             but can enforce         nv12 to h264/h265       H264 video into      to the network
-#                                                                      multiple input        using TensorRT      the detected objcts using TensorRT      create buffer                                create buffer            limitations on                                  RTP packets
-#                                                                      sources before AI                         with persistent                                                                           the data format
-#                                                                                                                (possibly unique) 
-#                                                                                                                IDs over time
+#   ______________          _____________          _________          ____________________          ________________          _________          ________________          ____________          _______________          ____________          _________
+#  |              |        |             |        |         |        |                    |        |                |        |         |        |                |        |            |        |               |        |            |        |         |
+#  | uridecodebin |------->| nvstreammux |------->| nvinfer |------->| nvmultistreamtiler |------->| nvvideoconvert |------->| nvdsosd |------->| nvvideoconvert |------->| capsfilter |------->| nvv4l2h264enc |------->| rtph264pay |------->| udpsink |
+#  |______________|   |    |_____________|        |_________|        |____________________|        |________________|        |_________|        |________________|        |____________|        |_______________|        |____________|        |_________|
+#         .           |
+#         .           |    forms a batch          does inferencing   create subplots               convert video             draw overlay       convert video            not modify data         encode video            Payload-encode       sends UDP packets 
+#         .           |    of frames from         on input data                                    nv12 to RGBA              bounding boxes     RGBA to nv12             but can enforce         nv12 to h264/h265       H264 video into      to the network
+#   ______________    |    multiple input         using TensorRT                                   create buffer                                create buffer            limitations on                                  RTP packets
+#  |              |   |    sources before AI                                                                                                                             the data format
+#  | uridecodebin |----
+#  |______________|
+#
+#     input videos
+#
 #############################################################################################################################################################################################################################################################################################################################
 
 
@@ -83,10 +87,6 @@ def parse_args():
     parser.add_argument("-b", "--bitrate", default=4000000, help="Set the encoding bitrate, default=4000000", type=int)
     parser.add_argument("-p", "--port", default=8554, help="Port of RTSP stream, default=8554", type=int)
     parser.add_argument("--primary_config_file",   default="dstest2_pgie_config.txt", help="Config file, default=dstest2_pgie_config.txt")
-    parser.add_argument("--secondary_config_file", default="dstest2_sgie_config.txt", help="Config file, default=dstest2_sgie_config.txt")
-    # parser.add_argument("--tertiary_config_file",  default="dstest2_tgie_config.txt", help="Config file, default=dstest2_tgie_config.txt")
-    parser.add_argument("--tracker_config_file",   default="dstest2_tracker_config.txt", help="Config file, default=dstest2_tracker_config.txt")
-    parser.add_argument("-m", "--meta", default=0, help="set past tracking meta, default=0", type=int)
     parser.add_argument("-s", "--stream-name", default="stream1", help="Stream name, default=stream1")
     
     # Check input arguments
@@ -102,10 +102,6 @@ def parse_args():
     global bitrate
     global port
     global primary_config_file
-    global secondary_config_file
-    # global tertiary_config_file
-    global tracker_config_file
-    global past_tracking
     global stream_name
     
     stream_path = args.input_video
@@ -114,10 +110,6 @@ def parse_args():
     bitrate = args.bitrate
     port = args.port
     primary_config_file = f"dstest3_pgie_config_b{batch_size}.txt"
-    secondary_config_file = args.secondary_config_file
-    # tertiary_config_file = args.tertiary_config_file
-    tracker_config_file = args.tracker_config_file
-    past_tracking = args.meta
     stream_name = args.stream_name
     
     return 0
@@ -131,7 +123,8 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         ready = True
         print("\n Ready to stream")
     
-    fps_streams["stream{0}".format(0)].get_fps()
+    getfps_streams["stream{0}".format(0)].update_fps()
+    fps_streams["stream{0}".format(0)] = getfps_streams["stream{0}".format(0)].get_fps()
 
     frame_number=0
     old_frame_number=-1
@@ -166,7 +159,7 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
 
         frame_number=frame_meta.frame_num
         l_obj=frame_meta.obj_meta_list
-        num_rects = frame_meta.num_obj_meta
+        num_rects = frame_meta.num_obj_meta # Number of rectangles ==> Number of objects
         while l_obj is not None:
             try: 
                 # Casting l_obj.data to pyds.NvDsObjectMeta
@@ -191,13 +184,17 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
         # Reading the display_text field here will return the C address of the
         # allocated string. Use pyds.get_string() to get the string content.
 
-        # Get frame rate through this probe
-        fps_streams["stream{0}".format(frame_meta.pad_index)].update_fps()
-        # fps_streams["stream{0}".format(frame_meta.pad_index)].print_data()
-        fps = fps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
+        # # Get frame rate through this probe
+        # getfps_streams["stream{0}".format(frame_meta.pad_index)].update_fps()
+        # # getfps_streams["stream{0}".format(frame_meta.pad_index)].print_data()
+        # fps = getfps_streams["stream{0}".format(frame_meta.pad_index)].get_fps()
 
         # py_nvosd_text_params.display_text = "Frame Number={} Number of Objects={} Vehicle_count={} Person_count={}".format(frame_number, num_rects, obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
-        py_nvosd_text_params.display_text = f"stream={frame_meta.pad_index}\nFrame Number={frame_number:04d}\nNumber of Objects={num_rects:03d}\nVehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}\nPerson_count={obj_counter[PGIE_CLASS_ID_PERSON]:04d}\nfps={fps:02.2f}"
+        py_nvosd_text_params.display_text = f"stream={frame_meta.pad_index}\n\
+Frame Number={frame_number:04d}\nfps={fps_streams['stream{0}'.format(0)]:.2f}\n\
+Number of Objects={num_rects:03d}\n\
+Vehicle_count={obj_counter[PGIE_CLASS_ID_VEHICLE]:03d}\n\
+Person_count={obj_counter[PGIE_CLASS_ID_PERSON]:04d}"
         
         # Now set the offsets where the string should appear
         py_nvosd_text_params.x_offset = 10;
@@ -230,7 +227,6 @@ def tiler_src_pad_buffer_probe(pad,info,u_data):
 
 
 def cb_newpad(decodebin, decoder_src_pad,data):
-    print("In cb_newpad\n")
     caps=decoder_src_pad.get_current_caps()
     gststruct=caps.get_structure(0)
     gstname=gststruct.get_name()
@@ -239,12 +235,11 @@ def cb_newpad(decodebin, decoder_src_pad,data):
 
     # Need to check if the pad created by the decodebin is for video and not
     # audio.
-    print("gstname=",gstname)
+    print(" In cb_newpad: gstname=",gstname)
     if(gstname.find("video")!=-1):
         # Link the decodebin pad only if decodebin has picked nvidia
         # decoder plugin nvdec_*. We do this by checking if the pad caps contain
         # NVMM memory features.
-        print("features=",features)
         if features.contains("memory:NVMM"):
             # Get the source bin ghost pad
             bin_ghost_pad=source_bin.get_static_pad("src")
@@ -254,7 +249,7 @@ def cb_newpad(decodebin, decoder_src_pad,data):
             sys.stderr.write(" Error: Decodebin did not pick nvidia decoder plugin.\n")
 
 def decodebin_child_added(child_proxy,Object,name,user_data):
-    print("Decodebin child added:", name, "\n")
+    print(" Decodebin child added:", name,)
     if(name.find("decodebin") != -1):
         Object.connect("child-added",decodebin_child_added,user_data)
 
@@ -264,7 +259,6 @@ def create_source_bin(index,uri):
     # Create a source GstBin to abstract this bin's content from the rest of the
     # pipeline
     bin_name="source-bin-%02d" %index
-    # print(f"\t\t{bin_name}")
     nbin=Gst.Bin.new(bin_name)
     if not nbin:
         sys.stderr.write(" Unable to create source bin \n")
@@ -273,6 +267,7 @@ def create_source_bin(index,uri):
     # We will use decodebin and let it figure out the container format of the
     # stream and the codec and plug the appropriate demux and decode plugins.
     uri_decode_bin=Gst.ElementFactory.make("uridecodebin", "uri-decode-bin")
+    print(f"\t\t\tCreating uridecodebin for {bin_name}: {uri}. Source element for reading from the uri")
     if not uri_decode_bin:
         sys.stderr.write(" Unable to create uri decode bin \n")
     # We set the input uri to the source element
@@ -303,9 +298,12 @@ def main(args):
         sys.exit(1)
 
     # Get number of video sources
-    for i in range(0,len(args)-1):
-        fps_streams["stream{0}".format(i)]=GETFPS(i)
     number_sources=len(args)-2
+
+    # Init FPS
+    for i in range(0,len(args)-1):
+        getfps_streams["stream{0}".format(i)]=GETFPS(i)
+        fps_streams["stream{0}".format(i)]=0
 
     # Standard GStreamer initialization
     gst_status, _ = Gst.init_check(None)    # GStreamer initialization
@@ -332,11 +330,12 @@ def main(args):
         sys.stderr.write(" Unable to create NvStreamMux \n")
     
     # For each URI path source provided by the user, a source_bin is created and added to the pipeline to be linked later. Each source bin can be thought of as a mini-pipeline that automatically decodes the input referenced by the URI (either file or stream). Each new source bin has its own source and sink pad:
+    print(" \t Creating sources:")
     pipeline.add(streammux)
     is_live = False
     for i in range(number_sources):
         uri_name=args[i+2]
-        print(f" \t Creating source_bin {i:02d}: {uri_name}")
+        print(f"\t\t Creating source_bin {i:02d}: {uri_name}")
         if uri_name.find("rtsp://") == 0 :
             is_live = True
         source_bin=create_source_bin(i, uri_name)
@@ -560,8 +559,8 @@ def main(args):
     ####################################################################################
     print(" Video sources:")
     for i, source in enumerate(args):
-        if (i != 0):
-            print(f"\t {i}: {source}")
+        if (i > 1):
+            print(f"\t {i-1}: {source}")
 
     
     
