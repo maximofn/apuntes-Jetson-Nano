@@ -62,15 +62,15 @@ ready = False
 
 
 #############################################################################################################################################################################################################################################################################################################################
-#   ______________          _____________          _________          ____________________          ________________          _________          ________________          ____________          _______________          ____________          _________
-#  |              |        |             |        |         |        |                    |        |                |        |         |        |                |        |            |        |               |        |            |        |         |
-#  | uridecodebin |------->| nvstreammux |------->| nvinfer |------->| nvmultistreamtiler |------->| nvvideoconvert |------->| nvdsosd |------->| nvvideoconvert |------->| capsfilter |------->| nvv4l2h264enc |------->| rtph264pay |------->| udpsink |
-#  |______________|   |    |_____________|        |_________|        |____________________|        |________________|        |_________|        |________________|        |____________|        |_______________|        |____________|        |_________|
+#   ______________          _____________          _________          ____________________          ________________          _________          ________________          ____________          _______________          ___________          ________          __________
+#  |              |        |             |        |         |        |                    |        |                |        |         |        |                |        |            |        |               |        |           |        |        |        |          |
+#  | uridecodebin |------->| nvstreammux |------->| nvinfer |------->| nvmultistreamtiler |------->| nvvideoconvert |------->| nvdsosd |------->| nvvideoconvert |------->| capsfilter |------->| nvv4l2h264enc |------->| h264parse |------->| mp4mux |------->| filesink |
+#  |______________|   |    |_____________|        |_________|        |____________________|        |________________|        |_________|        |________________|        |____________|        |_______________|        |___________|        |________|        |__________|
 #         .           |
-#         .           |    forms a batch          does inferencing   create subplots               convert video             draw overlay       convert video            not modify data         encode video            Payload-encode       sends UDP packets 
-#         .           |    of frames from         on input data                                    nv12 to RGBA              bounding boxes     RGBA to nv12             but can enforce         nv12 to h264/h265       H264 video into      to the network
-#   ______________    |    multiple input         using TensorRT                                   create buffer                                create buffer            limitations on                                  RTP packets
-#  |              |   |    sources before AI                                                                                                                             the data format
+#         .           |    forms a batch          does inferencing   create subplots               convert video             draw overlay       convert video            not modify data         encode video            parses the           merges streams     write incoming 
+#         .           |    of frames from         on input data                                    nv12 to RGBA              bounding boxes     RGBA to nv12             but can enforce         nv12 to h264/h265       incoming             (audio and video)  data to a file 
+#   ______________    |    multiple input         using TensorRT                                   create buffer                                create buffer            limitations on                                  H264/H265 stream     into ISO MPEG-4    in the local 
+#  |              |   |    sources before AI                                                                                                                             the data format                                                      (.mp4) files       file system
 #  | uridecodebin |----
 #  |______________|
 #
