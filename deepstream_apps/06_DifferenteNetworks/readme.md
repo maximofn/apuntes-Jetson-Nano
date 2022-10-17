@@ -1,0 +1,1 @@
+Se puede usar cualquier código de los de antes, la diferencia está en la llamada a la red mediante el archivo de configuración
