@@ -82,6 +82,7 @@ def parse_args():
         parser.print_help(sys.stderr)
         sys.exit(1)
     args = parser.parse_args()
+    batch_size = len(sys.argv)-2
     
     global stream_path
     global output_path
@@ -102,7 +103,7 @@ def parse_args():
     output_codec = args.output_codec
     bitrate = args.bitrate
     port = args.port
-    primary_config_file = args.primary_config_file
+    primary_config_file = f"config_infer_primary_yoloV3_b{batch_size}.txt"
     # secondary_config_file = args.secondary_config_file
     # tertiary_config_file = args.tertiary_config_file
     # tracker_config_file = args.tracker_config_file
