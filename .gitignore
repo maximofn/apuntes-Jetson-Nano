@@ -1,6 +1,6 @@
-deepstream_apps/samples
-deepstream_apps/.ipynb_checkpoints
 .vscode
-deepstream_apps/objectDetector_Yolo/
-deepstream_apps/objectDetector_SSD/
-deepstream_apps/objectDetector_FasterRCNN/
+deepstream/deepstream_apps/samples
+deepstream/deepstream_apps/.ipynb_checkpoints
+deepstream/deepstream_apps/objectDetector_Yolo/
+deepstream/deepstream_apps/objectDetector_SSD/
+deepstream/deepstream_apps/objectDetector_FasterRCNN/

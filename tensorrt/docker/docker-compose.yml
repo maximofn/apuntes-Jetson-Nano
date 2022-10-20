@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  tensorrt:
+    container_name: tensorrt
+    image: maximofn/tensorrt:1.4-notebooks-vscode
+    build: .
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia
+    # command: tail -f /dev/null
+    command: jupyter notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser
+    volumes:
+      - /tmp/.X11-unix/:/tmp/.X11-unix/
+      - ../getting_started:/workspace/getting_started
+    devices:
+      - "/dev/video0:/dev/video0"
+    ports:
+      - "8888:8888"
