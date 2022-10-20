@@ -4,3 +4,5 @@ deepstream/deepstream_apps/.ipynb_checkpoints
 deepstream/deepstream_apps/objectDetector_Yolo/
 deepstream/deepstream_apps/objectDetector_SSD/
 deepstream/deepstream_apps/objectDetector_FasterRCNN/
+tensorrt/getting_started/resnet50/model.onnx
+tensorrt/getting_started/resnet50_pytorch.onnx
