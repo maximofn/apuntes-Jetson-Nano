@@ -55,11 +55,11 @@
 [property]
 gpu-id=0
 net-scale-factor=0.0039215697906911373
-model-file=../../../../samples/models/Primary_Detector/resnet10.caffemodel
-proto-file=../../../../samples/models/Primary_Detector/resnet10.prototxt
-model-engine-file=../../../../samples/models/Primary_Detector/resnet10.caffemodel_b1_gpu0_fp16.engine
-labelfile-path=../../../../samples/models/Primary_Detector/labels.txt
-int8-calib-file=../../../../samples/models/Primary_Detector/cal_trt.bin
+model-file=../Primary_Detector/model_files/resnet10.caffemodel
+proto-file=../Primary_Detector/proto_files/resnet10.prototxt
+model-engine-file=../Primary_Detector/model_files/resnet10.caffemodel_b1_gpu0_int8.engine
+labelfile-path=../Primary_Detector/label_files/labels.txt
+int8-calib-file=../Primary_Detector/int8_calib_files/cal_trt.bin
 force-implicit-batch-dim=1
 batch-size=1
 network-mode=1
@@ -74,3 +74,27 @@ output-blob-names=conv2d_bbox;conv2d_cov/Sigmoid
 pre-cluster-threshold=0.2
 eps=0.2
 group-threshold=1
+
+# for vehicles
+[class-attrs-0] 
+pre-cluster-threshold=0.2
+eps=0.2
+group-threshold=1
+
+# for bicycles
+# [class-attrs-1] 
+# pre-cluster-threshold=0.2
+# eps=0.2
+# group-threshold=1
+
+# for persons
+[class-attrs-2] 
+pre-cluster-threshold=0.7
+eps=0.2
+group-threshold=1
+
+# for road signs
+# [class-attrs-3] 
+# pre-cluster-threshold=0.2
+# eps=0.2
+# group-threshold=1
