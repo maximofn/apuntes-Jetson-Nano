@@ -3,7 +3,7 @@ version: "3.8"
 services:
   deepstream61:
     container_name: deepstream61
-    image: maximofn/deepstream61:dev
+    image: maximofn/deepstream61:dev_1.0.0
     build: .
     deploy:
       resources:
@@ -18,7 +18,8 @@ services:
     volumes:
       - /tmp/.X11-unix/:/tmp/.X11-unix/
       - ../deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
-      - ../deepstream_nano:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_nano
+      # - ../deepstream_nano:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_nano
+      - ../../tensorrt:/opt/nvidia/deepstream/deepstream-6.1/sources/tensorrt
     devices:
       - "/dev/video0:/dev/video0"
     ports:
