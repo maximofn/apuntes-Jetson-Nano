@@ -7,4 +7,5 @@ deepstream/deepstream_apps/objectDetector_FasterRCNN/
 tensorrt/getting_started/
 tensorrt/*.onnx
 tensorrt/*.trt
+tensorrt/*.engine
 pytorch_tensorrt
