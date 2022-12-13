@@ -8,4 +8,6 @@ RUN wget \
 
 RUN pip install jupyter
 
+RUN pip3 install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu116
+
 WORKDIR /opt/nvidia/deepstream/deepstream-6.1/sources/

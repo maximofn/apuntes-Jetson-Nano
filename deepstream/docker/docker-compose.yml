@@ -3,7 +3,7 @@ version: "3.8"
 services:
   deepstream61:
     container_name: deepstream61
-    image: maximofn/deepstream61:dev_1.0.0
+    image: maximofn/deepstream61:dev_1.0.1
     build: .
     deploy:
       resources:
