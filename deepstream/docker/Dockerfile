@@ -10,4 +10,6 @@ RUN pip install jupyter
 
 RUN pip3 install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu116
 
+RUN pip3 install opencv-python
+
 WORKDIR /opt/nvidia/deepstream/deepstream-6.1/sources/

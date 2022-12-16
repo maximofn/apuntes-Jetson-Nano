@@ -1,27 +1,23 @@
-version: "3.8"
+version: "3.3"
 
 services:
   deepstream61:
-    container_name: deepstream61
-    image: maximofn/deepstream61:dev_1.0.1
+    container_name: ds61
+    image: maximofn/deepstream61:dev_1.0.2
     build: .
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     runtime: nvidia
-    # command: tail -f /dev/null
     command: jupyter notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser
     volumes:
       - /tmp/.X11-unix/:/tmp/.X11-unix/
       - ../deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
-      # - ../deepstream_nano:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_nano
       - ../../tensorrt:/opt/nvidia/deepstream/deepstream-6.1/sources/tensorrt
     devices:
       - "/dev/video0:/dev/video0"
+    environment:
+      - DISPLAY=$DISPLAY
     ports:
       - "8554:8554"
       - "8888:8888"
+    privileged: true
+    stdin_open: true
+    tty: true
