@@ -9,8 +9,9 @@ services:
     command: jupyter notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser
     volumes:
       - /tmp/.X11-unix/:/tmp/.X11-unix/
-      - ../deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
-      - ../../tensorrt:/opt/nvidia/deepstream/deepstream-6.1/sources/tensorrt
+      - ../deepstream/deepstream_apps:/opt/nvidia/deepstream/deepstream-6.1/sources/deepstream_apps
+      - ../tensorrt:/opt/nvidia/deepstream/deepstream-6.1/sources/tensorrt
+      - ../onnx:/opt/nvidia/deepstream/deepstream-6.1/sources/onnx
     devices:
       - "/dev/video0:/dev/video0"
     environment:
