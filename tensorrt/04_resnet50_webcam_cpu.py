@@ -43,6 +43,10 @@ size = N*1024
 size_bytes = struct.pack("I", size)
 udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, size_bytes)
 
+# Set up VideoWriter
+fourcc = cv2.VideoWriter_fourcc(*'H264')
+out = cv2.VideoWriter('rtsp://localhost:8554/test', fourcc, 20.0, (640, 480))
+
 T0 = time.time()
 
 iteracctions = -1
@@ -124,7 +128,8 @@ while True:
     # Send image
     t0 = time.time()
     # udp_socket.sendto(frame, target_addr)
-    send_message(frame)
+    # send_message(frame)
+    out.write(frame)
     t = time.time() - t0
 
     # Iteracctions
@@ -138,6 +143,7 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 udp_socket.close()
+out.release()
 
 
 # Print stats
