@@ -12,4 +12,6 @@ RUN pip3 install torch torchvision --extra-index-url https://download.pytorch.or
 
 RUN pip3 install opencv-python
 
+RUN pip install pycuda onnx scikit-image
+
 WORKDIR /opt/nvidia/deepstream/deepstream-6.1/sources/

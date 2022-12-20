@@ -17,7 +17,7 @@ services:
     command: jupyter notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser
     volumes:
       - /tmp/.X11-unix/:/tmp/.X11-unix/
-      - ../getting_started:/workspace/getting_started
+      - ../:/workspace/tensorrt_host/
     devices:
       - "/dev/video0:/dev/video0"
     ports:
