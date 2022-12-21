@@ -16,22 +16,22 @@ frame = []
 # Creamos un bucle infinito para recibir y mostrar el vídeo por el socket
 while True:
     # Recibimos el mensaje del socket
-    message, addr = sock.recvfrom(65507)
+    message, addr = sock.recvfrom(64770)#65507)
 
-    # len_message = len(message)
-    # if len_message != len_message_old:
-    #     print(f"len_message: {len_message}, type: {type(len_message)}")
-    #     len_message_old = len_message
+    len_message = len(message)
+    if len_message != len_message_old:
+        print(f"len_message: {len_message}, type: {type(len_message)}")
+        len_message_old = len_message
 
     # Añadimos bytes al final del mensaje hasta que su tamaño sea divisible por 3
-    while len(message) % 65151 != 0:
-        message += b'\x00'
+    # while len(message) % 65151 != 0:
+    #     message += b'\x00'
 
     # Creamos un array NumPy a partir de la secuencia de bytes
     frame = np.frombuffer(message, dtype=np.uint8)
 
     # Redimensionamos el array NumPy a una imagen de 3 canales
-    frame = frame.reshape(127, 171, 3)
+    frame = frame.reshape(127, 170, 3)
     frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_NEAREST)
 
     # Mostramos la imagen en una ventana

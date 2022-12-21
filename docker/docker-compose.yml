@@ -16,6 +16,7 @@ services:
       - "/dev/video0:/dev/video0"
     environment:
       - DISPLAY=$DISPLAY
+    network_mode: "host"
     ports:
       - "8554:8554"
       - "8888:8888"

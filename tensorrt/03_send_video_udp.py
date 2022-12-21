@@ -13,6 +13,8 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
 len_frame = 0
 len_frame_old = 0
+len_resized_frame = 0
+len_resized_frame_old = 0
 
 running = True
 
@@ -33,6 +35,12 @@ while True:
 
     # Redimensionamos el array NumPy a un tamaño de 127x170
     frame = cv2.resize(frame, (170, 127), interpolation=cv2.INTER_NEAREST)
+
+    # Imprimimos el tamaño del frame redimensionado
+    len_resized_frame = len(frame.tobytes())
+    if len_resized_frame != len_resized_frame_old:
+        print(f"len_resized_frame: {len_resized_frame}, shape: {frame.shape}")
+        len_resized_frame_old = len_resized_frame
 
     # Display
     # cv2.imshow("frame", frame)
