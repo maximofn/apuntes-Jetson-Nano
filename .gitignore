@@ -8,4 +8,5 @@ tensorrt/getting_started/
 tensorrt/*.onnx
 tensorrt/*.trt
 tensorrt/*.engine
+tensorrt/__pycache__
 pytorch_tensorrt
