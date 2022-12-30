@@ -26,6 +26,14 @@ model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.
 with open('imagenet_labels.txt') as f:
     labels = eval(f.read())
 
+# Configuration of text on the screen
+font = cv2.FONT_HERSHEY_SIMPLEX
+fontScale = 0.6
+fontColor = (0, 0, 255)#(10,10,10)
+lineThickness= 1
+lineType = cv2.LINE_AA
+
+# Time variables
 T0 = time.time()
 t_camera = 0
 t_preprocess = 0
@@ -33,12 +41,15 @@ t_inference = 0
 t_postprocess = 0
 t_bucle = 0
 FPS = 0
-# iteracctions = -1
-# t_read_frame = []
-# t_preprocess = []
-# t_inference = []
-# t_postprocess = []
-# FPS_list = []
+
+# Media variables
+iteracctions = -1
+t_read_frame_list = []
+t_preprocess_list = []
+t_inference_list = []
+t_postprocess_list = []
+t_bucle_list = []
+FPS_list = []
 
 while True:
     t0 = time.time()
@@ -92,16 +103,30 @@ while True:
 
     # Put text
     y = 30
-    cv2.putText(frame, f"Todo en GPU:", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"FPS: {FPS:.2f}", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"Image shape: {img.shape}", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"t camera: {t_camera*1000:.2f} ms", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"t preprocess: {t_preprocess*1000:.2f} ms", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"t model to gpu: {t_model_gpu*1000:.2f} ms", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"t inference: {t_inference*1000:.2f} ms", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"t postprocess: {t_postprocess*1000:.2f} ms", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
-    cv2.putText(frame, f"Predicted: {idx}-{labels[idx]}", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2); y += 30
+    cv2.putText(frame, f"Todo en GPU:", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"FPS: {FPS:.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"Image shape: {img.shape}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t camera: {t_camera*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t preprocess: {t_preprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t model to gpu: {t_model_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t inference: {t_inference*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t postprocess: {t_postprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t bucle: {t_bucle*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"Predicted: {idx}-{labels[idx]}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+
+    # Media variables
+    iteracctions += 1
+    if iteracctions >= 0:
+        t_read_frame_list.append(t_camera)
+        t_preprocess_list.append(t_preprocess)
+        t_inference_list.append(t_inference)
+        t_postprocess_list.append(t_postprocess)
+        t_bucle_list.append(t_bucle)
+        FPS_list.append(FPS)
+        cv2.putText(frame, f"Media: {iteracctions} iteracctions, t read frame {np.mean(t_read_frame_list)*1000:.2f} ms, t preprocess {np.mean(t_preprocess_list)*1000:.2f} \
+ms, t inference {np.mean(t_inference_list)*1000:.2f} ms, t postprocess {np.mean(t_postprocess_list)*1000:.2f} ms, t bucle {np.mean(t_bucle_list)*1000:.2f} ms, FPS {np.mean(FPS_list):.2f}",
+(10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
 
     # Mandamos el frame por el socket
     success, encoded_frame = video.encode_frame(frame)
