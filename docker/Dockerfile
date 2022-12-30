@@ -14,4 +14,10 @@ RUN pip3 install opencv-python
 
 RUN pip install pycuda onnx scikit-image
 
+RUN pip install colored polygraphy --extra-index-url https://pypi.ngc.nvidia.com
+
+RUN pip install onnxruntime
+
+RUN echo "export POLYGRAPHY_AUTOINSTALL_DEPS=1" >> ~/.bashrc
+
 WORKDIR /opt/nvidia/deepstream/deepstream-6.1/sources/
