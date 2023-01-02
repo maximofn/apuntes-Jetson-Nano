@@ -42,4 +42,5 @@ class video():
         return cv2.imdecode(self.frame, cv2.IMREAD_UNCHANGED)
     
     def close(self):
+        self.cap.release()
         cv2.destroyAllWindows()
