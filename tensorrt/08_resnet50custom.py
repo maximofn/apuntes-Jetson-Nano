@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 import torchvision
 import cv2
 import numpy as np
@@ -20,7 +21,30 @@ video.open(device=0)
 
 # Download model
 print("Creating model...")
-model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
+class Resnet50custom(nn.Module):
+    def __init__(self):
+        super(Resnet50custom, self).__init__()
+        self.resnet50 = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT).cuda()
+
+    def forward(self, img):
+        # Preprocess image
+        img = torch.from_numpy(img).cuda()  # numpy to tensor
+        img = torch.flip(img, dims=[2])     # RGB to BGR
+        img = img / 255.0                   # 0-255 to 0-1
+        img = img.permute(2, 0, 1)          # HWC to CHW
+        img = img.unsqueeze(0)              # Add batch dimension
+
+        # Inference
+        probs = self.resnet50(img)
+
+        # Postprocess
+        probs = torch.nn.functional.softmax(probs, dim=1)
+        probs = probs.squeeze(0)
+        prob, idx = torch.max(probs, dim=0)
+        prob = prob.item()
+        idx = int(idx.item())
+        return prob, idx
+model = Resnet50custom()
 
 # dict with ImageNet labels
 with open('imagenet_labels.txt') as f:
@@ -36,20 +60,14 @@ lineType = cv2.LINE_AA
 # Time variables
 T0 = time.time()
 t_camera = 0
-t_preprocess = 0
 t_inference = 0
-t_postprocess = 0
 t_bucle = 0
 FPS = 0
 
 # Media variables
 iteracctions = -1
 t_read_frame_list = []
-t_img_gpu_list = []
-t_preprocess_list = []
-t_model_gpu_list = []
 t_inference_list = []
-t_postprocess_list = []
 t_bucle_list = []
 FPS_list = []
 
@@ -61,39 +79,17 @@ while True:
     if not ret:
         continue
 
-    # Preprocess image
-    t0 = time.time()
-    img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    img = np.transpose(img, (2, 0, 1))
-    img = img.astype(np.float32) / 255.0
-    img = torch.from_numpy(img)
-    img = img.unsqueeze(0)
-    t_preprocess = time.time() - t0
-
-    # Send model to GPU
-    t0 = time.time()
-    model = model.cuda()
-    t_model_gpu = time.time() - t0
-
-    # Send image to GPU
-    t0 = time.time()
-    img = img.cuda()
-    t_img_gpu = time.time() - t0
-
     # Inference
     t0 = time.time()
     model.eval()
     with torch.no_grad():
-        outputs = model(img)
+        prob, idx = model(frame)
         end = time.time()
     t_inference = time.time() - t0
 
     # Postprocess
     t0 = time.time()
-    outputs = torch.nn.functional.softmax(outputs, dim=1)
-    outputs = outputs.squeeze(0)
-    outputs = outputs.tolist()
-    idx = outputs.index(max(outputs))
+    # idx = outputs.index(max(outputs))
     t_postprocess = time.time() - t0
 
     # Bucle time
@@ -106,34 +102,23 @@ while True:
     y = 30
     cv2.putText(frame, f"Modelo en GPU:", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"FPS: {FPS:.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"Image shape: {img.shape}, img dtype: {img.dtype}, img max: {img.max()}, img min: {img.min()}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"Frame shape: {frame.shape}, frame dtype: {frame.dtype}, frame max: {frame.max()}, frame min: {frame.min()}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t camera: {t_camera*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t preprocess: {t_preprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t model to gpu: {t_model_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t inference: {t_inference*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t postprocess: {t_postprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t bucle: {t_bucle*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"Predicted: {idx}-{labels[idx]}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"Predicted: {idx}-{labels[idx]}, prob: {prob:.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
 
     # Media variables
     iteracctions += 1
     if iteracctions >= 0:
         t_read_frame_list.append(t_camera)
-        t_img_gpu_list.append(t_img_gpu)
-        t_preprocess_list.append(t_preprocess)
-        t_model_gpu_list.append(t_model_gpu)
         t_inference_list.append(t_inference)
-        t_postprocess_list.append(t_postprocess)
         t_bucle_list.append(t_bucle)
         FPS_list.append(FPS)
         cv2.putText(frame, f"Media: {iteracctions} iteracctions", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
         cv2.putText(frame, f"    t read frame {np.mean(t_read_frame_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-        cv2.putText(frame, f"    t img to gpu {np.mean(t_img_gpu_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-        cv2.putText(frame, f"    t preprocess {np.mean(t_preprocess_list)*1000:.2f} ms,", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-        cv2.putText(frame, f"    t model to gpu {np.mean(t_model_gpu_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
         cv2.putText(frame, f"    t inference {np.mean(t_inference_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-        cv2.putText(frame, f"    t postprocess {np.mean(t_postprocess_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
         cv2.putText(frame, f"    t bucle {np.mean(t_bucle_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
         cv2.putText(frame, f"    FPS {np.mean(FPS_list):.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
 

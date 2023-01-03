@@ -36,7 +36,9 @@ lineType = cv2.LINE_AA
 # Time variables
 T0 = time.time()
 t_camera = 0
+t_img_gpu = 0
 t_preprocess = 0
+t_model_gpu = 0
 t_inference = 0
 t_postprocess = 0
 t_bucle = 0
@@ -45,7 +47,9 @@ FPS = 0
 # Media variables
 iteracctions = -1
 t_read_frame_list = []
+t_img_gpu_list = []
 t_preprocess_list = []
+t_model_gpu_list = []
 t_inference_list = []
 t_postprocess_list = []
 t_bucle_list = []
@@ -107,9 +111,9 @@ while True:
     cv2.putText(frame, f"FPS: {FPS:.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"Image shape: {img.shape}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t camera: {t_camera*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t preprocess: {t_preprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t model to gpu: {t_model_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t inference: {t_inference*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t postprocess: {t_postprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t bucle: {t_bucle*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
@@ -119,14 +123,22 @@ while True:
     iteracctions += 1
     if iteracctions >= 0:
         t_read_frame_list.append(t_camera)
+        t_img_gpu_list.append(t_img_gpu)
         t_preprocess_list.append(t_preprocess)
+        t_model_gpu_list.append(t_model_gpu)
         t_inference_list.append(t_inference)
         t_postprocess_list.append(t_postprocess)
         t_bucle_list.append(t_bucle)
         FPS_list.append(FPS)
-        cv2.putText(frame, f"Media: {iteracctions} iteracctions, t read frame {np.mean(t_read_frame_list)*1000:.2f} ms, t preprocess {np.mean(t_preprocess_list)*1000:.2f} \
-ms, t inference {np.mean(t_inference_list)*1000:.2f} ms, t postprocess {np.mean(t_postprocess_list)*1000:.2f} ms, t bucle {np.mean(t_bucle_list)*1000:.2f} ms, FPS {np.mean(FPS_list):.2f}",
-(10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"Media: {iteracctions} iteracctions", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t read frame {np.mean(t_read_frame_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t img to gpu {np.mean(t_img_gpu_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t preprocess {np.mean(t_preprocess_list)*1000:.2f} ms,", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t model to gpu {np.mean(t_model_gpu_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t inference {np.mean(t_inference_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t postprocess {np.mean(t_postprocess_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    t bucle {np.mean(t_bucle_list)*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+        cv2.putText(frame, f"    FPS {np.mean(FPS_list):.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
 
     # Mandamos el frame por el socket
     success, encoded_frame = video.encode_frame(frame)
