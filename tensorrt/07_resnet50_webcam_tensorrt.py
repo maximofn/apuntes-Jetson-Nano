@@ -20,7 +20,10 @@ input_thread.start()
 sock = udp_socket('localhost', 8554, send=True)
 
 # Open webcam
-video = video(resize=False, width=1920, height=1080, fps=30, name="frame", display=False)
+CAPTURE_WIDTH = 1920
+CAPTURE_HEIGHT = 1080
+CAPTURE_FPS = 30
+video = video(resize=False, width=CAPTURE_WIDTH, height=CAPTURE_HEIGHT, fps=CAPTURE_FPS, name="frame", display=False)
 video.open(device=0)
 
 # dict with ImageNet labels
@@ -53,23 +56,43 @@ t_bucle_list = []
 FPS_list = []
 
 # Read engine model
-engine_model = "resnet50_pytorch_BS1.engine"
-with open(engine_model, "rb") as f:
-    serialized_engine = f.read()
+f = open(f"resnet50_pytorch_BS1_script.engine", "rb")
 
 # Create runtime
-runtime = trt.Runtime(logger)
+runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
 
 # Deserialize engine
-engine = runtime.deserialize_cuda_engine(serialized_engine)
+engine = runtime.deserialize_cuda_engine(f.read())
 
 # Create context
 context = engine.create_execution_context()
 
-# need to set input and output precisions to FP16 to fully enable it
+# Function to normalize image
+def normalize_image(img):
+    norm = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    result = norm(torch.from_numpy(img).transpose(0,2).transpose(1,2))
+    result = np.array(result, dtype=np.float16)
+    return result
+
+# Function to preprocess image
+def preprocess(frame):
+    img = torch.flip(torch.from_numpy(frame), dims=[2]).numpy() # Convert BGR to RGB
+    img = (img/255).astype(np.float64) # Normalize
+    img = np.expand_dims(np.array(img, dtype=np.float32), axis=0)
+    procesed_image = np.array([normalize_image(image) for image in img])
+    # norm = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # nomalized_image = np.array(norm(torch.from_numpy(img).transpose(1,3).transpose(2,3)), dtype=np.float16)
+    return procesed_image
+
+# Resize image
 BATCH_SIZE=1
+ret, frame = video.read()
+input_batch = preprocess(frame)
+
+# need to set input and output precisions to FP16 to fully enable it
 USE_FP16 = True
 target_dtype = np.float16 if USE_FP16 else np.float32
+output = np.empty([BATCH_SIZE, 1000], dtype = target_dtype) 
 output = np.empty([BATCH_SIZE, 1000], dtype = target_dtype) 
 
 # allocate device memory
@@ -80,11 +103,12 @@ bindings = [int(d_input), int(d_output)]
 
 stream = cuda.Stream()
 
-def preprocess_image(img):
-    norm = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    result = norm(torch.from_numpy(img).transpose(0,2).transpose(1,2))
-    result = np.array(result, dtype=np.float16)
-    return result
+def predict(batch): # result gets copied into output
+    cuda.memcpy_htod_async(d_input, batch, stream)          # transfer input data to device
+    context.execute_async_v2(bindings, stream.handle, None) # execute model
+    cuda.memcpy_dtoh_async(output, d_output, stream)        # transfer predictions back
+    stream.synchronize()                                    # syncronize threads
+    return output
 
 while True:
     t0 = time.time()
@@ -94,40 +118,19 @@ while True:
     if not ret:
         continue
 
-    # Send image to GPU
-    t0 = time.time()
-    img = frame.copy()
-    img = torch.from_numpy(img)
-    img = img.cuda()
-    t_img_gpu = time.time() - t0
-
     # Preprocess image
     t0 = time.time()
-    img = img[:, :, [2, 1, 0]]  # Convert to RGB
-    img = img.permute(2, 0, 1)  # Convert to CHW
-    img = (img/255).float()     # Normalize
-    img = img.unsqueeze(0)      # Add batch dimension
+    preprocessed_image = preprocess(frame)
     t_preprocess = time.time() - t0
-
-    # Send model to GPU
-    t0 = time.time()
-    model = model.cuda()
-    t_model_gpu = time.time() - t0
 
     # Inference
     t0 = time.time()
-    model.eval()
-    with torch.no_grad():
-        outputs = model(img)
-        end = time.time()
+    outputs = predict(preprocessed_image)
     t_inference = time.time() - t0
 
     # Postprocess
     t0 = time.time()
-    outputs = torch.nn.functional.softmax(outputs, dim=1)
-    outputs = outputs.squeeze(0)
-    outputs = outputs.tolist()
-    idx = outputs.index(max(outputs))
+    idx = outputs[0].argmax()
     t_postprocess = time.time() - t0
 
     # Bucle time
@@ -140,11 +143,11 @@ while True:
     y = 30
     cv2.putText(frame, f"Todo en GPU:", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"FPS: {FPS:.2f}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"Image shape: {img.shape}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"Image shape: {frame.shape}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t camera: {t_camera*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t preprocess: {t_preprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t model to gpu: {t_model_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
-    cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    cv2.putText(frame, f"t preprocess: {t_preprocess*1000:.2f} ms, preprocessed_image type {type(preprocessed_image)}", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    # cv2.putText(frame, f"t model to gpu: {t_model_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
+    # cv2.putText(frame, f"t image to gpu: {t_img_gpu*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t inference: {t_inference*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t postprocess: {t_postprocess*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
     cv2.putText(frame, f"t bucle: {t_bucle*1000:.2f} ms", (10, y), font, fontScale, fontColor, lineThickness, lineType); y += 30
